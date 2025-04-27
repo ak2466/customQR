@@ -8,7 +8,7 @@ qr.make()
 ascii_qr = qr.get_matrix()
 
 # --- Settings ---
-CELL_SIZE = 10
+CELL_SIZE = 70
 GRID_WIDTH = len(ascii_qr[0])
 GRID_HEIGHT = len(ascii_qr)
 
@@ -46,7 +46,10 @@ for y in range(GRID_HEIGHT):
     for x in range(GRID_WIDTH):
         value = ascii_qr[y][x]
         
-        text = "%" if value else "%"
+        if value:
+            text = "HOLE"[x%4]
+        else:
+            text = "HOLE"[x%4]
         color = BLACK_COLOR if value else WHITE_COLOR
 
         xpos = x * CELL_SIZE + CELL_SIZE // 2
