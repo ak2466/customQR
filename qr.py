@@ -46,10 +46,11 @@ for y in range(GRID_HEIGHT):
     for x in range(GRID_WIDTH):
         value = ascii_qr[y][x]
         
-        if value:
+        if y%2 == 0:
             text = "HOLE"[x%4]
         else:
-            text = "HOLE"[x%4]
+            text = "LEHO"[x%4]
+
         color = BLACK_COLOR if value else WHITE_COLOR
 
         xpos = x * CELL_SIZE + CELL_SIZE // 2
