@@ -11,6 +11,7 @@ ascii_qr = qr.get_matrix()
 CELL_SIZE = 70
 GRID_WIDTH = len(ascii_qr[0])
 GRID_HEIGHT = len(ascii_qr)
+text_block_size = 3  # Size of the block (2x2, 3x3, 4x4) to represent each "pixel"
 
 font_path = "fonts/times.ttf"
 
@@ -41,24 +42,29 @@ draw = ImageDraw.Draw(image)
 BLACK_COLOR = (0, 0, 0)
 WHITE_COLOR = (220, 220, 220)
 
-# --- Draw QR Code ---
-for y in range(GRID_HEIGHT):
-    for x in range(GRID_WIDTH):
-        value = ascii_qr[y][x]
-        
-        if y%2 == 0:
-            text = "HOLE"[x%4]
+# --- Draw QR Code with Text Blocks ---
+for y in range(0, GRID_HEIGHT, text_block_size):
+    for x in range(0, GRID_WIDTH, text_block_size):
+        # Get block of QR code data (this will decide the color of the block)
+        block_value = ascii_qr[y][x]
+
+        # Text for the block (we'll use "HOLE" / "LEHO" just like before)
+        if y % 2 == 0:
+            text = "HOLE"[x % 4]
         else:
-            text = "LEHO"[x%4]
+            text = "LEHO"[x % 4]
 
-        color = BLACK_COLOR if value else WHITE_COLOR
+        color = BLACK_COLOR if block_value else WHITE_COLOR
 
-        xpos = x * CELL_SIZE + CELL_SIZE // 2
-        ypos = y * CELL_SIZE + CELL_SIZE // 2
+        # Draw the block: filling the area of text_block_size x text_block_size
+        for dy in range(text_block_size):
+            for dx in range(text_block_size):
+                xpos = (x + dx) * CELL_SIZE + CELL_SIZE // 2
+                ypos = (y + dy) * CELL_SIZE + CELL_SIZE // 2
 
-        # Center the text
-        draw.text((xpos, ypos), text, font=font, fill=color, anchor="mm")
+                # Center the text
+                draw.text((xpos, ypos), text, font=font, fill=color, anchor="mm")
 
 # --- Save Image ---
-image.save("qr_times_new_roman_hole.png")
-print("Saved qr_times_new_roman_hole.png ✅")
+image.save("qr_times_new_roman_hole_thick.png")
+print("Saved qr_times_new_roman_hole_thick.png ✅")
