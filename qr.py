@@ -8,7 +8,7 @@ qr.make()
 ascii_qr = qr.get_matrix()
 
 # --- Settings ---
-CELL_SIZE = 70  # Size of each QR code "cell" (in pixels)
+CELL_SIZE = 60  # Size of each QR code "cell" (in pixels)
 GRID_WIDTH = len(ascii_qr[0])
 GRID_HEIGHT = len(ascii_qr)
 text_block_size = 3  # Size of the block (e.g., 2x2, 3x3, 4x4)
@@ -33,25 +33,28 @@ final_font_size = int(base_font_size * scale)
 font = ImageFont.truetype(font_path, final_font_size)
 
 # --- Create Image ---
-img_width = GRID_WIDTH * CELL_SIZE
-img_height = GRID_HEIGHT * CELL_SIZE
+img_width = GRID_WIDTH * CELL_SIZE * text_block_size
+img_height = GRID_HEIGHT * CELL_SIZE * text_block_size
 
 image = Image.new("RGB", (img_width, img_height), "white")
 draw = ImageDraw.Draw(image)
 
 BLACK_COLOR = (0, 0, 0)
 WHITE_COLOR = (220, 220, 220)
+TEST_COLOR = (220, 100, 0)
 
 # --- Draw QR Code with New "Thicker" Cells ---
 for y in range(GRID_HEIGHT):
     for x in range(GRID_WIDTH):
         value = ascii_qr[y][x]
+
+        print(f"ascii_qr[{x}[{y}] - {value}]")
         
         # Decide the block size (e.g., alternating blocks for aesthetics)
         if y % 2 == 0:
-            text = "HOLE"[x % 4]
+            text = "H"
         else:
-            text = "LEHO"[x % 4]
+            text = "H"
 
         # Block color
         color = BLACK_COLOR if value else WHITE_COLOR
@@ -59,6 +62,7 @@ for y in range(GRID_HEIGHT):
         # Draw a block of text for each "pixel" (with new cells based on block size)
         for dy in range(text_block_size):
             for dx in range(text_block_size):
+                print(f"dx, dy = ({dx}, {dy})")
                 xpos = (x * text_block_size + dx) * CELL_SIZE + CELL_SIZE // 2
                 ypos = (y * text_block_size + dy) * CELL_SIZE + CELL_SIZE // 2
 
