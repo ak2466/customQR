@@ -55,16 +55,17 @@ class QRText:
 
 
 
+# ✅
 def getCanvas(width, height):
 
     # --- Create Image ---
     img_width = width * CELL_SIZE * TEXT_BLOCK_SIZE
     img_height = height * CELL_SIZE * TEXT_BLOCK_SIZE
 
-    image = Image.new("RGBA", (img_width, img_height), "white")
+    canvas = Image.new("RGBA", (img_width, img_height), "white")
     draw = ImageDraw.Draw(image)
 
-    return image, draw
+    return canvas, draw
 
 def getCharacter(blockXY, relativeXY):
 
@@ -89,6 +90,7 @@ def setBackground(canvas):
 
     return imageWithBackground
 
+#✅
 def tintImage(image, color, intensity=0.4):
 
     # check if image mode isn't RGBA
@@ -105,6 +107,7 @@ def tintImage(image, color, intensity=0.4):
 
 
 
+# ✅
 def scaleImage(image, newSize):
 
     # Get original width and height
@@ -142,6 +145,7 @@ def scaleImage(image, newSize):
     return cropped_image
 
 
+# ✅
 def placeImageBlock(canvas, position, overlay):
 
     # get the relative coordinates
@@ -161,6 +165,7 @@ def placeCharacterBlock(draw, font, position, character, color):
     draw.text((xpos, ypos), character, font=font, fill=color, anchor="mm")
 
 
+# ✅
 def getXYPos(position):
 
     x, y, dx, dy = position
