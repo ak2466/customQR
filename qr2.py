@@ -1,7 +1,7 @@
 from PIL import Image as PILImage, ImageDraw, ImageFont
 import qrcode
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable
 
 '''
 Plan: Dependency injected render functions
@@ -21,6 +21,19 @@ class QRCell:
     value: bool
 
 @dataclass
+class QRTextStyle:
+
+    # Font path
+    font_path: str
+
+    # Get character function
+    get_cell_func: Callable[[QRCell], Tuple[str, Tuple[int, int, int]]]
+
+    # Render settings
+    px_per_cell: int = 50
+    cells_per_block: int = 2
+
+@dataclass
 class QRImageStyle:
 
     # Base image filename
@@ -28,8 +41,8 @@ class QRImageStyle:
 
     # 2-image style
     # Images are stored as filenames that will be opened by the renderer
-    on_image: Optional[str] = None
-    off_image: Optional[str] = None
+    on_image_filename: Optional[str] = None
+    off_image_filename: Optional[str] = None
 
     # tint style
     on_tint: Optional[Tuple[Tuple[int, int, int], float]] = None
@@ -43,7 +56,7 @@ class QRImageStyle:
     def __post_init__(self):
 
         # Set boolean values to check if we either have two images or two tints
-        two_image_set = self.on_image is not None and self.off_image is not None
+        two_image_set = self.on_image_filename is not None and self.off_image_filename is not None
         two_tint_set = self.on_tint is not None and self.off_tint is not None
 
         # Check for presence of neither values
@@ -103,31 +116,24 @@ class QRGenerator:
 
         # Return the QR Data Matrix
         return QRData
-
     
-# Define QRImageBlockRenderer
-class QRImageBlockRenderer:
-    def __init__(self, QR: QRGenerator, style: QRImageStyle):
 
-        # Set QRData
+
+
+# Define QRRenderer base class
+class QRRenderer:
+
+    # Define initializer
+    def __init__(self, QR: QRGenerator, cells_per_block: int):
+
+        # Set QRdata
         self.QR = QR
 
-        # Refactor to take in QRImageStyle next
-        self.style = style
+        # Set style
+        self.cells_per_block = cells_per_block
 
-        # Get the canvas
-        self.canvas = self._getImageCanvas()
-
-        # Get the cells
-        self.cells = self._getCells()
-
-        # Set tints
-        # First value: color
-        # Second value: opacity of tint
-        self.onTint = ((0, 0, 0), 0.75)
-        self.offTint = ((255, 255, 255), 0.7)
-
-    def _getCells(self):
+    # Define get cells function
+    def get_cells(self):
 
         # Create list for storing strings
         cells = []
@@ -140,14 +146,157 @@ class QRImageBlockRenderer:
                 value = self.QR.QRData[y][x]
 
                 # Iterate through the pixels in the current QR block
-                for dy in range(self.style.cells_per_block):
-                    for dx in range(self.style.cells_per_block):
+                for dy in range(self.cells_per_block):
+                    for dx in range(self.cells_per_block):
 
                         # Create cell and add it to list
                         cells.append(QRCell(x, y, dx, dy, value))
 
         # Return cells list
         return cells
+    
+    def get_canvas(self, width: int, height: int):
+
+        pass
+
+
+
+
+
+
+
+# Define QRTextBlockRenderer
+class QRTextBlockRenderer:
+    def __init__(self, QR: QRGenerator, style: QRTextStyle):
+
+        # Set QRData
+        self.QR = QR
+
+        # Set style
+        self.style = style
+
+        # Get font
+        self.font = self._getScaledFont()
+
+        # Get the canvas
+        self.canvas = self._getImageCanvas()
+
+        # Create a renderer
+        self.__renderer = QRRenderer(self.QR, self.style.cells_per_block)
+
+        # Get cells
+        self.cells = self.__renderer.get_cells()
+
+    def _getImageCanvas(self):
+
+        # Calculate image width and height
+        img_width = self.QR.width * self.style.cells_per_block * self.style.px_per_cell
+        img_height = self.QR.height * self.style.cells_per_block * self.style.px_per_cell
+
+        # Initialize new image and draw classes
+        image = PILImage.new("RGBA", (img_width, img_height), "white")
+        draw = ImageDraw.Draw(image)
+
+        # Combine into renderCanvas dataclass
+        canvas = RenderCanvas(image, draw)
+
+        # Return the canvas
+        return canvas
+
+    def _getScaledFont(self, testChar = "%"):
+
+        # Step 1: Load with arbitrary small size first to measure
+        base_font_size = 10
+        font = ImageFont.truetype(self.style.font_path, base_font_size)
+
+        # Step 2: Measure test character
+        bbox = font.getbbox(testChar)
+        char_width = bbox[2] - bbox[0]
+        char_height = bbox[3] - bbox[1]
+
+        # Step 3: Calculate scaling factor
+        scale = self.style.px_per_cell / max(char_width, char_height)
+        final_font_size = int(base_font_size * scale)
+
+        # Step 4: Reload font at the correct size
+        font = ImageFont.truetype(self.style.font_path, final_font_size)
+
+        return font
+    
+    def _getXYPos(self, currentCell: QRCell):
+
+        # Extract
+        x, y = currentCell.x, currentCell.y
+        dx, dy = currentCell.dx, currentCell.dy
+        cells_per_block, px_per_cell = self.style.cells_per_block, self.style.px_per_cell
+
+        # Calculate pixel coordinates
+        xpos = (x * cells_per_block + dx) * px_per_cell + (px_per_cell // 2)
+        ypos = (y * cells_per_block + dy) * px_per_cell + (px_per_cell // 2)
+
+        return (xpos, ypos)
+    
+    def render(self):
+
+        # Iterate through cells
+        for cell in self.cells:
+
+            # Get a character
+            char, color = self.style.get_cell_func(cell)
+
+            # Call render cell
+            self._renderCell(cell, char, color)
+
+        # Then, return the canvas (should contain rendered image)
+        return self.canvas.image
+            
+
+    
+    def _renderCell(self, currentCell: QRCell, character: str, color: Tuple[int, int, int]):
+
+        # Get absolute x and y positions
+        xpos, ypos = self._getXYPos(currentCell)
+
+        self.canvas.draw.text(
+            (xpos, ypos), 
+            character, 
+            font=self.font, 
+            fill=color, 
+            anchor="mm")
+
+
+
+
+
+
+
+    
+# Define QRImageBlockRenderer
+class QRImageBlockRenderer:
+    def __init__(self, QR: QRGenerator, style: QRImageStyle):
+
+        # Set QRData
+        self.QR = QR
+
+        # Set style
+        self.style = style
+
+        # Get the canvas
+        self.canvas = self._getImageCanvas()
+
+        # Create a base renderer
+        self.__renderer = QRRenderer(self.QR, self.style.px_per_cell)
+
+        # Get the cells
+        self.cells = self.__renderer.get_cells()
+
+        # Set tints
+        # First value: color
+        # Second value: opacity of tint
+        self.onTint = ((0, 0, 0), 0.75)
+        self.offTint = ((255, 255, 255), 0.7)
+
+    # getCells went here
 
     def _getImageCanvas(self):
 
@@ -190,9 +339,9 @@ class QRImageBlockRenderer:
     def render(self):
 
         # Get on / off images if present
-        if self.style.on_image:
-            onImage = self._openImage(self.style.on_image)
-            offImage = self._openImage(self.style.off_image)
+        if self.style.on_image_filename and self.style.off_image_filename:
+            onImage = self._openImage(self.style.on_image_filename)
+            offImage = self._openImage(self.style.off_image_filename)
 
         # Otherwise, assume tint was passed
         else:
@@ -291,14 +440,39 @@ def main():
 
     qr = QRGenerator("https://hole.cd")
 
-    style = QRImageStyle(
-        cells_per_block=1,
-        base_image_filename = "images/laserdisc.jpg",
-        on_tint = ((0, 0, 0), 0.7),
-        off_tint = ((255, 255, 255), 0.6)
+# style = QRImageStyle(
+#     cells_per_block=1,
+#     base_image_filename="images/laserdisc.jpg",
+#     off_tint=((255, 255, 255), 0.5),
+#     on_tint=((0, 0, 0), 0.25)
+# )
+
+# renderer = QRImageBlockRenderer(qr, style)
+
+# image = renderer.render()
+# image.save("testprintqr.png")
+
+    def testFunc(cell: QRCell):
+        
+        if cell.value:
+            color = (0, 0, 0)
+        else:
+            color = (220, 220, 220)
+
+        string = "HOLE"
+        char = string[2]
+
+        print(f"X: {(cell.x + cell.dx) % len(string)}, Y: {(cell.y + cell.dy)}")
+        char = string[(cell.x + cell.dx) % len(string)]
+
+        return (char, color)
+
+    style = QRTextStyle(
+        font_path="fonts/times.ttf",
+        get_cell_func=testFunc
     )
 
-    renderer = QRImageBlockRenderer(qr, style)
+    renderer = QRTextBlockRenderer(qr, style)
 
     image = renderer.render()
     image.show()
