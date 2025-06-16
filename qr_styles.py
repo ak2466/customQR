@@ -20,8 +20,8 @@ def main():
 
                 return absolute_x, absolute_y, absolute_index
 
-            on_color = (220, 220, 220)
-            off_color = (0, 0, 0)
+            off_color = (220, 220, 220)
+            on_color = (0, 0, 0)
 
             if cell.value:
                 color = on_color
@@ -30,10 +30,15 @@ def main():
             
             abs_x, abs_y, abs_index = _getAbsolutePositions(cell, style)
 
+            offset = 0
+            shift = 2 * abs_y
+
+            # print(f"abs_x: {abs_x}, abs_y: {abs_y}, abs_index: {abs_index}")
+
             if self._overwrap:
-                character = self._string[abs_index % len(self._string)]
+                character = self._string[(abs_index + offset + shift) % len(self._string)]
             else:
-                character = self._string[abs_x % len(self._string)]
+                character = self._string[(abs_x + offset + shift) % len(self._string)]
 
             return (character, color)
             
@@ -43,7 +48,7 @@ def main():
         cells_per_block=3
     )
 
-    hole_text = RepeatingTextStrategy("HOLE", overwrap=True)
+    hole_text = RepeatingTextStrategy("HOLE", overwrap=False)
 
     renderer = QRTextBlockRenderer(qr, style, hole_text)
 
