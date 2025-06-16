@@ -1,9 +1,6 @@
 from qr_engine import QRCell, QRGenerator, QRTextStyle, QRTextBlockRenderer, CellRenderingProtocol
 from typing import Tuple
 
-
-qr = QRGenerator("https://url")
-
 class RepeatingTextStrategy(CellRenderingProtocol):
 
     def __init__(self, 
@@ -49,20 +46,4 @@ class RepeatingTextStrategy(CellRenderingProtocol):
             character = self._string[(abs_x + self._offset + shift) % len(self._string)]
 
         return (character, color)
-        
-def __main__():
-    style = QRTextStyle(
-        font_path="fonts/times.ttf",
-        cells_per_block=3
-    )
-
-    text_strategy = RepeatingTextStrategy("TEXT", overwrap=False, offset=3, shift=2)
-
-    renderer = QRTextBlockRenderer(qr, style, text_strategy)
-
-    image = renderer.render()
-    image.show()
-
-if __name__ == "__main__":
-    __main__()
 
