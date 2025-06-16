@@ -58,7 +58,7 @@ def main():
         cells_per_block=3
     )
 
-    hole_text = RepeatingTextStrategy("HOLE", overwrap=False, shift=1)
+    hole_text = RepeatingTextStrategy("HOLE", overwrap=False, offset=3, shift=2)
 
     renderer = QRTextBlockRenderer(qr, style, hole_text)
 
