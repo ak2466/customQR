@@ -3,14 +3,6 @@ import qrcode
 from dataclasses import dataclass
 from typing import Optional, Tuple, Callable, Protocol
 
-'''
-Plan: Dependency injected render functions
-QRGenerator has a generic "render" function which iterates through cell list,
-and calls the passed-in render class' render function.
-This render function will call the class' renderBlock function, which will
-handle most of the technical details.
-'''
-
 @dataclass
 class RenderCanvas:
     image: PILImage.Image
