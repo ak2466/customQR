@@ -1,0 +1,5 @@
+*.png
+*.txt
+__pycache__/
+fonts/
+images/

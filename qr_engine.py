@@ -1,7 +1,7 @@
 from PIL import Image as PILImage, ImageDraw, ImageFont
 import qrcode
 from dataclasses import dataclass
-from typing import Optional, Tuple, Callable
+from typing import Optional, Tuple, Callable, Protocol
 
 '''
 Plan: Dependency injected render functions
@@ -10,6 +10,42 @@ and calls the passed-in render class' render function.
 This render function will call the class' renderBlock function, which will
 handle most of the technical details.
 '''
+
+@dataclass
+class RenderCanvas:
+    image: PILImage.Image
+    draw: ImageDraw.ImageDraw
+
+# Define QRGenerator class
+class QRGenerator:
+
+    # Define initializer
+    def __init__(self, QRString: str):
+
+
+        # Assign the QR string and the QR Data Matrix
+        self.QRString: str = QRString
+        self.QRData: list[list[bool]] = self._getQRData()
+
+        # Assign width and height
+        self.width = len(self.QRData[0])
+        self.height = len(self.QRData)
+
+    # Define function to generate QR code data
+    def _getQRData(self):
+
+        # Create QR object
+        qr = qrcode.QRCode(border=1)
+
+        # Add data to the QR code and make it
+        qr.add_data(self.QRString)
+        qr.make()
+
+        # Extract the QR data
+        QRData = qr.get_matrix()
+
+        # Return the QR Data Matrix
+        return QRData
 
 # Define a class for storing a single QR Cell
 @dataclass
@@ -25,9 +61,6 @@ class QRTextStyle:
 
     # Font path
     font_path: str
-
-    # Get character function
-    get_cell_func: Callable[[QRCell], Tuple[str, Tuple[int, int, int]]]
 
     # Render settings
     px_per_cell: int = 50
@@ -74,50 +107,12 @@ class QRImageStyle:
             raise ValueError (
                 "You must provide either image pair or tint pair, not both."
             )
-        
-
-
-
-
-
-
-@dataclass
-class RenderCanvas:
-    image: PILImage.Image
-    draw: ImageDraw.ImageDraw
-
-# Define QRGenerator class
-class QRGenerator:
-
-    # Define initializer
-    def __init__(self, QRString: str):
-
-
-        # Assign the QR string and the QR Data Matrix
-        self.QRString: str = QRString
-        self.QRData: list[list[bool]] = self._getQRData()
-
-        # Assign width and height
-        self.width = len(self.QRData[0])
-        self.height = len(self.QRData)
-
-    # Define function to generate QR code data
-    def _getQRData(self):
-
-        # Create QR object
-        qr = qrcode.QRCode(border=1)
-
-        # Add data to the QR code and make it
-        qr.add_data(self.QRString)
-        qr.make()
-
-        # Extract the QR data
-        QRData = qr.get_matrix()
-
-        # Return the QR Data Matrix
-        return QRData
     
+# Define interface for cell rendering
+class CellRenderingProtocol(Protocol):
 
+    def __call__(self, cell: QRCell, qr: QRGenerator, style: QRTextStyle) -> Tuple[str, Tuple[int, int, int]]:
+        ...
 
 
 # Define QRRenderer base class
@@ -167,13 +162,20 @@ class QRRenderer:
 
 # Define QRTextBlockRenderer
 class QRTextBlockRenderer:
-    def __init__(self, QR: QRGenerator, style: QRTextStyle):
+
+    def __init__(self, 
+                 QR: QRGenerator, 
+                 style: QRTextStyle,
+                 cell_rendering_protocol: CellRenderingProtocol):
 
         # Set QRData
         self.QR = QR
 
         # Set style
         self.style = style
+
+        # Set get cell function
+        self._get_cell_func = cell_rendering_protocol
 
         # Get font
         self.font = self._getScaledFont()
@@ -242,7 +244,7 @@ class QRTextBlockRenderer:
         for cell in self.cells:
 
             # Get a character
-            char, color = self.style.get_cell_func(cell)
+            char, color = self._get_cell_func(cell, self.QR, self.style)
 
             # Call render cell
             self._renderCell(cell, char, color)
@@ -407,7 +409,7 @@ class QRImageBlockRenderer:
             new_height = int(original_height * (target_width / original_width))
 
         # Resize the image
-        resized_overlay = image.resize((new_width, new_height), PILImage.LANCZOS)
+        resized_overlay = image.resize((new_width, new_height), PILImage.LANCZOS) # type: ignore
 
         # Calculate the center of the image
         left = (new_width - target_width) // 2
@@ -435,55 +437,5 @@ class QRImageBlockRenderer:
 
         # return blended image
         return PILImage.blend(originalImage, tint_layer, tint[1])
-    
-def main():
 
-    qr = QRGenerator("https://hole.cd")
-
-# style = QRImageStyle(
-#     cells_per_block=1,
-#     base_image_filename="images/laserdisc.jpg",
-#     off_tint=((255, 255, 255), 0.5),
-#     on_tint=((0, 0, 0), 0.25)
-# )
-
-# renderer = QRImageBlockRenderer(qr, style)
-
-# image = renderer.render()
-# image.save("testprintqr.png")
-
-    def testFunc(cell: QRCell):
-        
-        if cell.value:
-            color = (0, 0, 0)
-        else:
-            color = (220, 220, 220)
-
-        string = "HOLE"
-        char = string[2]
-
-        print(f"X: {(cell.x + cell.dx) % len(string)}, Y: {(cell.y + cell.dy)}")
-        char = string[(cell.x + cell.dx) % len(string)]
-
-        return (char, color)
-
-    style = QRTextStyle(
-        font_path="fonts/times.ttf",
-        get_cell_func=testFunc
-    )
-
-    renderer = QRTextBlockRenderer(qr, style)
-
-    image = renderer.render()
-    image.show()
-    
-
-if __name__ == "__main__":
-    main()
-
-
-
-
-
-
-    
+             
