@@ -43,8 +43,6 @@ class RepeatingTextStrategy(CellRenderingProtocol):
         abs_x, abs_y, abs_index = _getAbsolutePositions(cell, style)
         shift = self._shift * abs_y
 
-        # print(f"abs_x: {abs_x}, abs_y: {abs_y}, abs_index: {abs_index}")
-
         if self._overwrap:
             character = self._string[(abs_index + self._offset + shift) % len(self._string)]
         else:
