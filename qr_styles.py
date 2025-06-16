@@ -1,73 +1,70 @@
-from qr_engine import *
+from qr_engine import QRCell, QRGenerator, QRTextStyle, QRTextBlockRenderer, CellRenderingProtocol
+from typing import Tuple
 
-def main():
 
-    qr = QRGenerator("https://hole.cd")
-    
-    class RepeatingTextStrategy(CellRenderingProtocol):
+qr = QRGenerator("https://url")
 
-        def __init__(self, 
-                     string: str, 
-                     overwrap: bool = False, 
-                     light_color: Tuple[int, int, int] = (220, 220, 220),
-                     dark_color: Tuple[int, int, int] = (0, 0, 0),
-                     offset = 0,
-                     shift = 0
-                     ):
-            
-            self._overwrap = overwrap
-            self._string = string
+class RepeatingTextStrategy(CellRenderingProtocol):
 
-            self._light_color = light_color
-            self._dark_color = dark_color
+    def __init__(self, 
+                    string: str, 
+                    overwrap: bool = False, 
+                    light_color: Tuple[int, int, int] = (220, 220, 220),
+                    dark_color: Tuple[int, int, int] = (0, 0, 0),
+                    offset = 0,
+                    shift = 0
+                    ):
+        
+        self._overwrap = overwrap
+        self._string = string
 
-            self._offset = offset
-            self._shift = shift
+        self._light_color = light_color
+        self._dark_color = dark_color
 
-        def __call__(self, cell: QRCell, qr: QRGenerator, style: QRTextStyle) -> Tuple[str, Tuple[int, int, int]]:
+        self._offset = offset
+        self._shift = shift
 
-            def _getAbsolutePositions(cell: QRCell, style):
-                absolute_x = cell.x * style.cells_per_block + cell.dx
-                absolute_y = cell.y * style.cells_per_block + cell.dy
-                total_rendered_cells_per_row = qr.width * style.cells_per_block
-                absolute_index = (absolute_y * total_rendered_cells_per_row + absolute_x)
+    def __call__(self, cell: QRCell, qr: QRGenerator, style: QRTextStyle) -> Tuple[str, Tuple[int, int, int]]:
 
-                return absolute_x, absolute_y, absolute_index
+        def _getAbsolutePositions(cell: QRCell, style):
+            absolute_x = cell.x * style.cells_per_block + cell.dx
+            absolute_y = cell.y * style.cells_per_block + cell.dy
+            total_rendered_cells_per_row = qr.width * style.cells_per_block
+            absolute_index = (absolute_y * total_rendered_cells_per_row + absolute_x)
 
-            # If cell is true, 
-            if cell.value:
-                color = self._dark_color
-            else:
-                color = self._light_color
-            
-            abs_x, abs_y, abs_index = _getAbsolutePositions(cell, style)
-            shift = self._shift * abs_y
+            return absolute_x, absolute_y, absolute_index
 
-            # print(f"abs_x: {abs_x}, abs_y: {abs_y}, abs_index: {abs_index}")
+        # If cell is true, 
+        if cell.value:
+            color = self._dark_color
+        else:
+            color = self._light_color
+        
+        abs_x, abs_y, abs_index = _getAbsolutePositions(cell, style)
+        shift = self._shift * abs_y
 
-            if self._overwrap:
-                character = self._string[(abs_index + self._offset + shift) % len(self._string)]
-            else:
-                character = self._string[(abs_x + self._offset + shift) % len(self._string)]
+        # print(f"abs_x: {abs_x}, abs_y: {abs_y}, abs_index: {abs_index}")
 
-            return (character, color)
-            
+        if self._overwrap:
+            character = self._string[(abs_index + self._offset + shift) % len(self._string)]
+        else:
+            character = self._string[(abs_x + self._offset + shift) % len(self._string)]
 
+        return (character, color)
+        
+def __main__():
     style = QRTextStyle(
         font_path="fonts/times.ttf",
         cells_per_block=3
     )
 
-    hole_text = RepeatingTextStrategy("HOLE", overwrap=False, offset=3, shift=2)
+    text_strategy = RepeatingTextStrategy("TEXT", overwrap=False, offset=3, shift=2)
 
-    renderer = QRTextBlockRenderer(qr, style, hole_text)
+    renderer = QRTextBlockRenderer(qr, style, text_strategy)
 
     image = renderer.render()
     image.show()
-    image.save("newqr.png")
-    
 
 if __name__ == "__main__":
-    main()
-
+    __main__()
 
