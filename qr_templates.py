@@ -1,4 +1,4 @@
-from qr_engine import QRCell, QRGenerator, QRTextStyle, QRTextBlockRenderer, CellRenderingProtocol
+from .qr_engine import QRCell, QRGenerator, QRTextStyle, QRTextBlockRenderer, CellRenderingProtocol
 from typing import Tuple
 
 class RepeatingTextStrategy(CellRenderingProtocol):
