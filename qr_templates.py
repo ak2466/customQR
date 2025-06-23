@@ -1,4 +1,4 @@
-from .qr_engine import QRCell, QRGenerator, QRTextStyle, QRTextBlockRenderer, CellRenderingProtocol
+from .qr_engine import QRCell, QRGenerator, QRTextStyle, QRTextBlockRenderer, CellRenderingProtocol, RenderSettings
 from typing import Tuple
 
 class RepeatingTextStrategy(CellRenderingProtocol):
@@ -21,12 +21,12 @@ class RepeatingTextStrategy(CellRenderingProtocol):
         self._offset = offset
         self._shift = shift
 
-    def __call__(self, cell: QRCell, qr: QRGenerator, style: QRTextStyle) -> Tuple[str, Tuple[int, int, int]]:
+    def __call__(self, cell: QRCell, qr: QRGenerator, style: QRTextStyle, renderSettings: RenderSettings) -> Tuple[str, Tuple[int, int, int]]:
 
         def _getAbsolutePositions(cell: QRCell, style):
-            absolute_x = cell.x * style.cells_per_block + cell.dx
-            absolute_y = cell.y * style.cells_per_block + cell.dy
-            total_rendered_cells_per_row = qr.width * style.cells_per_block
+            absolute_x = cell.x * renderSettings.cells_per_block + cell.dx
+            absolute_y = cell.y * renderSettings.cells_per_block + cell.dy
+            total_rendered_cells_per_row = qr.width * renderSettings.cells_per_block
             absolute_index = (absolute_y * total_rendered_cells_per_row + absolute_x)
 
             return absolute_x, absolute_y, absolute_index

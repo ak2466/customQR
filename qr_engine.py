@@ -8,6 +8,13 @@ class RenderCanvas:
     image: PILImage.Image
     draw: ImageDraw.ImageDraw
 
+@dataclass
+class RenderSettings:
+
+    # Render settings
+    px_per_cell: int = 50
+    cells_per_block: int = 2
+
 # Define QRGenerator class
 class QRGenerator:
 
@@ -54,9 +61,6 @@ class QRTextStyle:
     # Font path
     font_path: str
 
-    # Render settings
-    px_per_cell: int = 50
-    cells_per_block: int = 2
 
 @dataclass
 class QRImageStyle:
@@ -103,7 +107,7 @@ class QRImageStyle:
 # Define interface for cell rendering
 class CellRenderingProtocol(Protocol):
 
-    def __call__(self, cell: QRCell, qr: QRGenerator, style: QRTextStyle) -> Tuple[str, Tuple[int, int, int]]:
+    def __call__(self, cell: QRCell, qr: QRGenerator, style: QRTextStyle, renderSettings: RenderSettings) -> Tuple[str, Tuple[int, int, int]]:
         ...
 
 
@@ -111,13 +115,13 @@ class CellRenderingProtocol(Protocol):
 class QRRenderer:
 
     # Define initializer
-    def __init__(self, QR: QRGenerator, cells_per_block: int):
+    def __init__(self, QR: QRGenerator, renderSettings: RenderSettings):
 
         # Set QRdata
-        self.QR = QR
+        self.__QR = QR
 
-        # Set style
-        self.cells_per_block = cells_per_block
+        # Set RenderSettings
+        self.__renderSettings = RenderSettings
 
     # Define get cells function
     def get_cells(self):
@@ -126,15 +130,15 @@ class QRRenderer:
         cells = []
 
         # Iterate through pixels of the QR Code
-        for y in range(self.QR.height):
-            for x in range(self.QR.width):
+        for y in range(self.__QR.height):
+            for x in range(self.__QR.width):
 
                 # Get the value at the current position of the QR matrix
-                value = self.QR.QRData[y][x]
+                value = self.__QR.QRData[y][x]
 
                 # Iterate through the pixels in the current QR block
-                for dy in range(self.cells_per_block):
-                    for dx in range(self.cells_per_block):
+                for dy in range(self.__renderSettings.cells_per_block):
+                    for dx in range(self.__renderSettings.cells_per_block):
 
                         # Create cell and add it to list
                         cells.append(QRCell(x, y, dx, dy, value))
@@ -142,9 +146,21 @@ class QRRenderer:
         # Return cells list
         return cells
     
-    def get_canvas(self, width: int, height: int):
+    def get_canvas(self):
 
-        pass
+        # Calculate image width and height
+        width = self.__QR.width * self.__renderSettings.cells_per_block * self.__renderSettings.px_per_cell
+        height = self.__QR.height * self.__renderSettings.cells_per_block * self.__renderSettings.px_per_cell
+
+        # Initialize new image and draw classes
+        image = PILImage.new("RGBA", (width, height), "white")
+        draw = ImageDraw.Draw(image)
+
+        # Combine into renderCanvas dataclass
+        canvas = RenderCanvas(image, draw)
+
+        # Return the canvas
+        return canvas
 
 
 
@@ -158,6 +174,7 @@ class QRTextBlockRenderer:
     def __init__(self, 
                  QR: QRGenerator, 
                  style: QRTextStyle,
+                 renderSettings: RenderSettings,
                  cell_rendering_protocol: CellRenderingProtocol):
 
         # Set QRData
@@ -165,6 +182,9 @@ class QRTextBlockRenderer:
 
         # Set style
         self.style = style
+    
+        # Set render settings
+        self.__renderSettings = renderSettings
 
         # Set get cell function
         self._get_cell_func = cell_rendering_protocol
@@ -172,30 +192,14 @@ class QRTextBlockRenderer:
         # Get font
         self.font = self._getScaledFont()
 
-        # Get the canvas
-        self.canvas = self._getImageCanvas()
-
         # Create a renderer
-        self.__renderer = QRRenderer(self.QR, self.style.cells_per_block)
+        self.__renderer = QRRenderer(self.QR, self.__renderSettings)
+
+        # Get the canvas
+        self.__canvas = self.__renderer.get_canvas()
 
         # Get cells
         self.cells = self.__renderer.get_cells()
-
-    def _getImageCanvas(self):
-
-        # Calculate image width and height
-        img_width = self.QR.width * self.style.cells_per_block * self.style.px_per_cell
-        img_height = self.QR.height * self.style.cells_per_block * self.style.px_per_cell
-
-        # Initialize new image and draw classes
-        image = PILImage.new("RGBA", (img_width, img_height), "white")
-        draw = ImageDraw.Draw(image)
-
-        # Combine into renderCanvas dataclass
-        canvas = RenderCanvas(image, draw)
-
-        # Return the canvas
-        return canvas
 
     def _getScaledFont(self, testChar = "%"):
 
@@ -209,7 +213,7 @@ class QRTextBlockRenderer:
         char_height = bbox[3] - bbox[1]
 
         # Step 3: Calculate scaling factor
-        scale = self.style.px_per_cell / max(char_width, char_height)
+        scale = self.__renderSettings.px_per_cell / max(char_width, char_height)
         final_font_size = int(base_font_size * scale)
 
         # Step 4: Reload font at the correct size
@@ -222,7 +226,7 @@ class QRTextBlockRenderer:
         # Extract
         x, y = currentCell.x, currentCell.y
         dx, dy = currentCell.dx, currentCell.dy
-        cells_per_block, px_per_cell = self.style.cells_per_block, self.style.px_per_cell
+        cells_per_block, px_per_cell = self.__renderSettings.cells_per_block, self.__renderSettings.px_per_cell
 
         # Calculate pixel coordinates
         xpos = (x * cells_per_block + dx) * px_per_cell + (px_per_cell // 2)
@@ -236,13 +240,13 @@ class QRTextBlockRenderer:
         for cell in self.cells:
 
             # Get a character
-            char, color = self._get_cell_func(cell, self.QR, self.style)
+            char, color = self._get_cell_func(cell, self.QR, self.style, self.__renderSettings)
 
             # Call render cell
             self._renderCell(cell, char, color)
 
         # Then, return the canvas (should contain rendered image)
-        return self.canvas.image
+        return self.__canvas.image
             
 
     
@@ -251,12 +255,38 @@ class QRTextBlockRenderer:
         # Get absolute x and y positions
         xpos, ypos = self._getXYPos(currentCell)
 
-        self.canvas.draw.text(
+        self.__canvas.draw.text(
             (xpos, ypos), 
             character, 
             font=self.font, 
             fill=color, 
             anchor="mm")
+        
+
+
+
+
+
+# Define QRBlockRenderer
+class QRBlockRenderer:
+    def __init__(self, QR: QRGenerator, renderSettings: RenderSettings):
+
+        # Set QRData
+        self.QR = QR
+
+        # Set render settings
+        self.__renderSettings = renderSettings
+
+        # Create a base renderer
+        self.__renderer = QRRenderer(self.QR, renderSettings)
+
+        # Get the canvas
+        self._canvas = self.__renderer.get_canvas()
+
+        # Get the cells
+        self.cells = self.__renderer.get_cells()
+
+
 
 
 
@@ -267,7 +297,7 @@ class QRTextBlockRenderer:
     
 # Define QRImageBlockRenderer
 class QRImageBlockRenderer:
-    def __init__(self, QR: QRGenerator, style: QRImageStyle):
+    def __init__(self, QR: QRGenerator, style: QRImageStyle, renderSettings: RenderSettings):
 
         # Set QRData
         self.QR = QR
@@ -275,11 +305,14 @@ class QRImageBlockRenderer:
         # Set style
         self.style = style
 
+        # Set render settings
+        self.__renderSettings = renderSettings
+
         # Get the canvas
         self.canvas = self._getImageCanvas()
 
         # Create a base renderer
-        self.__renderer = QRRenderer(self.QR, self.style.px_per_cell)
+        self.__renderer = QRRenderer(self.QR, self.__renderSettings)
 
         # Get the cells
         self.cells = self.__renderer.get_cells()
