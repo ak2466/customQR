@@ -1,10 +1,10 @@
 from .QREngine import QRGenerator, RenderSettings, QRRenderer, QRCell
-from typing import Tuple, Protocol
+from typing import Tuple, Protocol, Optional
 
 # Define interface for cell rendering
 class BlockRenderingProtocol(Protocol):
 
-    def __call__(self, cell: QRCell, qr: QRGenerator, renderSettings: RenderSettings) -> Tuple[str, Tuple[int, int, int]]:
+    def __call__(self, cell: QRCell, qr: QRGenerator, renderSettings: RenderSettings) -> Tuple[int, int, int]:
         ...
 
 # Define QRBlockRenderer
@@ -12,7 +12,7 @@ class QRBlockRenderer:
     def __init__(self, 
                  QR: QRGenerator, 
                  renderSettings: RenderSettings,
-                 cell_rendering_protocol: BlockRenderingProtocol):
+                 block_rendering_protocol: Optional[BlockRenderingProtocol] = None):
 
         # Set QRData
         self.QR = QR
@@ -30,7 +30,7 @@ class QRBlockRenderer:
         self.cells = self.__renderer.get_cells()
 
         # Set get cell function
-        self._get_cell_func = cell_rendering_protocol
+        self.protocol = block_rendering_protocol if block_rendering_protocol else SimpleBlockProtocol()
 
     # Define function for converting cell values into pixel values
     def _getXYPos(self, cell: QRCell):
@@ -61,7 +61,7 @@ class QRBlockRenderer:
         # Iterate through cells
         for cell in self.cells:
 
-            color = (255, 100, 255)
+            color = self.protocol(cell, self.QR, self.__renderSettings)
 
             # Call render cell
             self._renderCell(cell, color)
@@ -80,5 +80,23 @@ class QRBlockRenderer:
             xy=((xpos_start, ypos_start), (xpos_end, ypos_end)),
             fill=color,
         )
+
+class SimpleBlockProtocol(BlockRenderingProtocol):
+
+    def __init__(self,
+                light_color: Tuple[int, int, int] = (255, 255, 255),
+                dark_color: Tuple[int, int, int] = (0, 0, 0)):
+        
+        self.light_color = light_color
+        self.dark_color = dark_color
+
+    # Define actual action
+    def __call__(self, cell: QRCell, qr: QRGenerator, renderSettings: RenderSettings):
+
+        # Select color based on true/false val of QR
+        color: Tuple[int, int, int] = self.dark_color if cell.value else self.light_color
+
+        # Return color
+        return color
 
              
