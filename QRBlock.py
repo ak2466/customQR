@@ -36,16 +36,24 @@ class QRBlockRenderer:
     def _getXYPos(self, cell: QRCell):
 
         # Calculate pixel coordinates
-        xpos = (cell.x * 
+        xpos_start = (cell.x * 
                 self.__renderSettings.cells_per_block + 
                 cell.dx) * self.__renderSettings.px_per_cell
         
-        ypos = (cell.y *
+        ypos_start = (cell.y *
+                self.__renderSettings.cells_per_block +
+                cell.dx) * self.__renderSettings.px_per_cell
+        
+        xpos_end = ((cell.x + 1) * 
+                self.__renderSettings.cells_per_block + 
+                cell.dx) * self.__renderSettings.px_per_cell
+        
+        ypos_end = ((cell.y + 1) *
                 self.__renderSettings.cells_per_block +
                 cell.dx) * self.__renderSettings.px_per_cell
 
         # Return pixel values
-        return (xpos, ypos)
+        return (xpos_start, ypos_start, xpos_end, ypos_end)
     
     # Define function for rendering
     def render(self):
@@ -65,13 +73,12 @@ class QRBlockRenderer:
     def _renderCell(self, cell, color: Tuple[int, int, int]):
 
         # Get absolute x and y pixel positions
-        xpos, ypos = self._getXYPos(cell)
+        xpos_start, ypos_start, xpos_end, ypos_end = self._getXYPos(cell)
 
         # Draw the square
         self.__canvas.draw.rectangle(
-            xy=((xpos, ypos), (xpos + 5, ypos + 5)),
+            xy=((xpos_start, ypos_start), (xpos_end, ypos_end)),
             fill=color,
-
         )
 
              
